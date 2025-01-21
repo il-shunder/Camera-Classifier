@@ -1,14 +1,18 @@
 import cv2 as cv
 import numpy as np
+import PIL.Image
+import PIL.ImageTk
 import tensorflow as tf
-from keras import datasets, layers, losses, models
+from keras import layers, losses, models
 
 
 class Model:
+    TEST_FRAME_PATH = "frame.jpg"
+    TRAIN_FRAME_SIZE = (150, 150)
+
     def __init__(self):
         self.model = models.Sequential(
             [
-                # layers.Input(shape=(150, 150, 1)),
                 layers.Conv2D(32, (3, 3), activation="relu"),
                 layers.MaxPooling2D((2, 2)),
                 layers.Conv2D(64, (3, 3), activation="relu"),
@@ -17,7 +21,7 @@ class Model:
                 layers.MaxPooling2D((2, 2)),
                 layers.Flatten(),
                 layers.Dense(64, activation="relu"),
-                layers.Dense(10, activation="linear"),
+                layers.Dense(2, activation="linear"),
             ]
         )
 
@@ -28,24 +32,33 @@ class Model:
         )
 
     def train(self, counters):
-        img_list = np.array([])
         class_list = np.array([])
-        shape = 0
-        reshape_size = 0
+        train_length = (sum(counters),)
 
-        (x_train, y_train), (x_test, y_test) = datasets.cifar10.load_data()
+        if train_length[0] > 0:
+            img_shape = cv.imread("0/frame0.jpg").shape
+            train_shape = train_length + img_shape
+            img_list = np.zeros(train_shape)
+            img_list_index = 0
 
-        for i in range(len(counters)):
-            for j in range(counters[i]):
-                img = cv.imread(f"{i}/frame{j}.jpg")
-                if not reshape_size:
-                    img_shape = img.shape
-                    reshape_size = img_shape[0] * img_shape[1]
-                # img = img.reshape(reshape_size)
-                img_list = np.append(img_list, [img])
-                class_list = np.append(class_list, i)
-            shape += counters[i]
+            for i in range(len(counters)):
+                for j in range(counters[i]):
+                    img = cv.imread(f"{i}/frame{j}.jpg")
+                    img_list[img_list_index] = img
+                    class_list = np.append(class_list, i)
+                    img_list_index += 1
 
-        # img_list = img_list.reshape(shape, reshape_size)
-        self.model.fit(img_list, class_list)
-        print("Model successfully trained!")
+            self.model.fit(img_list, class_list)
+            print("Model successfully trained!")
+
+    def predict(self, frame):
+        frame = frame[1]
+        cv.imwrite(self.TEST_FRAME_PATH, cv.cvtColor(frame, cv.COLOR_RGB2GRAY))
+        img = PIL.Image.open(self.TEST_FRAME_PATH)
+        img.thumbnail(self.TRAIN_FRAME_SIZE, PIL.Image.Resampling.LANCZOS)
+        img.save(self.TEST_FRAME_PATH)
+
+        img = cv.imread(self.TEST_FRAME_PATH)
+        prediction = self.model.predict(np.array([img]))
+
+        return prediction
