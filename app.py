@@ -24,6 +24,8 @@ class App:
         self.camera = camera.Camera()
         self.model = model.Model()
 
+        self.train_allowed = False
+        self.predict_allowed = False
         self.auto_predict = False
 
         self.classes = {}
@@ -51,13 +53,21 @@ class App:
         self.canvas = tk.Canvas(self.window, width=self.camera.FRAME_WIDTH, height=self.camera.FRAME_HEIGHT)
         self.canvas.pack()
 
-        self.btn_toggle_auto_predict = tk.Button(
-            self.window, text=self.AUTO_PREDICT_OFF_TEXT, width=50, command=self.auto_predict_toggle
-        )
-        self.btn_toggle_auto_predict.pack(anchor=tk.CENTER, expand=True)
-
         self.classes_number = self.get_classes_number()
         self.counters = [0] * self.classes_number
+
+        self.classes_label_1 = tk.Label(
+            self.window,
+            text="Click on the below buttons to provide examples of each class.",
+        )
+        self.classes_label_1.config(font=("Arial", 15))
+        self.classes_label_1.pack(anchor=tk.CENTER, expand=True)
+        self.classes_label_2 = tk.Label(
+            self.window,
+            text=f"For the next {self.save_frame_duration} seconds after clicking the button, the script will automatically save images every {self.save_frame_delay} seconds.",
+        )
+        self.classes_label_2.config(font=("Arial", 15))
+        self.classes_label_2.pack(anchor=tk.CENTER, expand=True)
 
         for i in range(self.classes_number):
             self.classes[i] = simpledialog.askstring(
@@ -73,16 +83,36 @@ class App:
             )
             self.btns_for_classes[i].pack(anchor=tk.CENTER, expand=True)
 
-        self.btn_train = tk.Button(
-            self.window, text="Train Model", width=50, command=lambda: self.model.train(self.counters)
+        self.train_label = tk.Label(
+            self.window,
+            text="Once you provide examples for all class, you will be able to train the model.",
         )
+        self.train_label.config(font=("Arial", 15))
+        self.train_label.pack(anchor=tk.CENTER, expand=True, pady=(15, 0))
+
+        self.btn_train = tk.Button(self.window, text="Train Model", width=50, command=self.train)
         self.btn_train.pack(anchor=tk.CENTER, expand=True)
+        self.disable_element(self.btn_train)
+
+        self.predict_label = tk.Label(
+            self.window,
+            text="Once you train the model, you can predict and/or auto-predict classes",
+        )
+        self.predict_label.config(font=("Arial", 15))
+        self.predict_label.pack(anchor=tk.CENTER, expand=True, pady=(15, 0))
+
+        self.btn_toggle_auto_predict = tk.Button(
+            self.window, text=self.AUTO_PREDICT_OFF_TEXT, width=50, command=self.auto_predict_toggle
+        )
+        self.btn_toggle_auto_predict.pack(anchor=tk.CENTER, expand=True)
+        self.disable_element(self.btn_toggle_auto_predict)
 
         self.btn_predict = tk.Button(self.window, text="Predcit", width=50, command=self.predict)
         self.btn_predict.pack(anchor=tk.CENTER, expand=True)
+        self.disable_element(self.btn_predict)
 
         self.btn_reset = tk.Button(self.window, text="Reset", width=50, command=self.reset)
-        self.btn_reset.pack(anchor=tk.CENTER, expand=True)
+        self.btn_reset.pack(anchor=tk.CENTER, expand=True, pady=(15, 0))
 
         self.class_label = tk.Label(self.window, text=self.DEFAULT_PREDICTED_TEXT)
         self.class_label.config(font=("Arial", 20))
@@ -98,15 +128,18 @@ class App:
     def auto_predict_toggle(self):
         self.auto_predict = not self.auto_predict
         if self.auto_predict:
+            self.disable_all_buttons()
+            self.enable_element(self.btn_toggle_auto_predict)
             self.btn_toggle_auto_predict.config(text=self.AUTO_PREDICT_ON_TEXT)
         else:
+            self.enable_all_buttons()
             self.btn_toggle_auto_predict.config(text=self.AUTO_PREDICT_OFF_TEXT)
 
     def activate_saving_for_class(self, index):
         if not os.path.isdir(str(index)):
             os.mkdir(str(index))
 
-        self.disable_class_buttons()
+        self.disable_all_buttons()
         self.active_class = index
         self.start_time = time.time() + self.save_frame_delay
         self.end_time = time.time() + self.save_frame_duration
@@ -128,7 +161,16 @@ class App:
                 self.save_frame(frame)
             elif self.active_class is not None and current_time > self.end_time:
                 self.active_class = None
-                self.enable_class_buttons()
+                for i in range(self.classes_number):
+                    self.enable_element(self.btns_for_classes[i])
+                if not self.train_allowed:
+                    self.train_allowed = all(x > 0 for x in self.counters)
+                if self.train_allowed:
+                    self.enable_element(self.btn_train)
+                if self.predict_allowed:
+                    self.enable_element(self.btn_toggle_auto_predict)
+                    self.enable_element(self.btn_predict)
+                self.enable_element(self.btn_reset)
 
         self.window.after(self.update_frame_delay, self.update_frame)
 
@@ -142,13 +184,36 @@ class App:
 
             self.counters[self.active_class] += 1
 
-    def disable_class_buttons(self):
+    def disable_all_buttons(self):
         for i in range(self.classes_number):
-            self.btns_for_classes[i].config(state=tk.DISABLED)
+            self.disable_element(self.btns_for_classes[i])
+        self.disable_element(self.btn_train)
+        self.disable_element(self.btn_toggle_auto_predict)
+        self.disable_element(self.btn_predict)
+        self.disable_element(self.btn_reset)
 
-    def enable_class_buttons(self):
+    def disable_element(self, element):
+        element.config(state=tk.DISABLED)
+
+    def enable_all_buttons(self):
         for i in range(self.classes_number):
-            self.btns_for_classes[i].config(state=tk.NORMAL)
+            self.enable_element(self.btns_for_classes[i])
+        self.enable_element(self.btn_train)
+        self.enable_element(self.btn_toggle_auto_predict)
+        self.enable_element(self.btn_predict)
+        self.enable_element(self.btn_reset)
+
+    def enable_element(self, element):
+        element.config(state=tk.NORMAL)
+
+    def train(self):
+        self.disable_element(self.btn_train)
+        model_trained = self.model.train(self.counters)
+        if model_trained:
+            self.predict_allowed = True
+            self.enable_element(self.btn_toggle_auto_predict)
+            self.enable_element(self.btn_predict)
+        self.enable_element(self.btn_train)
 
     def predict(self):
         frame = self.camera.get_frame()
@@ -157,13 +222,18 @@ class App:
         self.class_label.config(text=self.classes[index])
 
     def reset(self):
+        self.train_allowed = False
+        self.predict_allowed = False
         self.auto_predict = False
         self.btn_toggle_auto_predict.config(text=self.AUTO_PREDICT_OFF_TEXT)
-        self.remove_training_data()
-        self.remove_test_frame()
         self.counters = [0] * self.classes_number
         self.model = model.Model()
         self.class_label.config(text=self.DEFAULT_PREDICTED_TEXT)
+        self.disable_element(self.btn_train)
+        self.disable_element(self.btn_toggle_auto_predict)
+        self.disable_element(self.btn_predict)
+        self.remove_training_data()
+        self.remove_test_frame()
 
     def remove_training_data(self):
         for dir in range(len(self.counters)):

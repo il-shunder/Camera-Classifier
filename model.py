@@ -30,6 +30,8 @@ class Model:
 
             self.model.fit(img_list, class_list, epochs=10, verbose=2)
             print("Model successfully trained!")
+            return True
+        return False
 
     def create_model(self, output_num):
         self.model = models.Sequential(
