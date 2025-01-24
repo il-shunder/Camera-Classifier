@@ -47,7 +47,6 @@ class Model:
                 layers.Dense(output_num, activation="linear"),
             ]
         )
-
         self.model.compile(
             optimizer="adam",
             loss=losses.SparseCategoricalCrossentropy(from_logits=True),
@@ -56,7 +55,7 @@ class Model:
 
     def predict(self, frame):
         frame = frame[1]
-        cv.imwrite(self.TEST_FRAME_PATH, cv.cvtColor(frame, cv.COLOR_RGB2GRAY))
+        cv.imwrite(self.TEST_FRAME_PATH, cv.cvtColor(frame, cv.COLOR_BGR2RGB))
         img = PIL.Image.open(self.TEST_FRAME_PATH)
         img.thumbnail(self.TRAIN_FRAME_SIZE, PIL.Image.Resampling.LANCZOS)
         img.save(self.TEST_FRAME_PATH)
